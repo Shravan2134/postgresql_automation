@@ -1,0 +1,7 @@
+postgresql_version: 16
+db_name: mydatabase
+db_user: shravan
+db_password: shravan@1234
+backup_dir: /opt/db_backups
+become_method: sudo
+become_user: postgres

@@ -1,0 +1,116 @@
+---
+- name: Configure PostgreSQL to listen on all interfaces
+  hosts: dbservers
+  become: yes
+
+  pre_tasks:
+    - name: Install acl package
+      apt:
+        name: acl
+        state: present
+      become: yes
+
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+      register: postgresql_installed
+
+    - name: Ensure PostgreSQL is running
+      service:
+        name: postgresql
+        state: started
+      when: postgresql_installed.changed
+
+    - name: Configure PostgreSQL to listen on all interfaces
+      become: yes
+      lineinfile:
+        path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+        regexp: '^#listen_addresses ='
+        line: "listen_addresses = '*'"
+        state: present
+      notify: restart postgresql
+
+    - name: Allow password authentication in pg_hba.conf
+      become: yes
+      lineinfile:
+        path: /etc/postgresql/{{ postgresql_version }}/main/pg_hba.conf
+        regexp: '^#.*host all all all md5$'
+        line: 'host all all all md5'
+        state: present
+      notify: reload postgresql
+
+    - name: Ensure configuration file have correct permissions
+      become: yes
+      file:
+        path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+        owner: postgres
+        group: postgres
+        mode: 0644  
+
+    - name: Create database user
+      become: yes
+      become_user: postgres
+      command: >
+        psql -c "DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ db_user }}') THEN
+            CREATE ROLE {{ db_user }} WITH LOGIN PASSWORD '{{ db_password }}';
+          ELSE
+            ALTER ROLE {{ db_user }} WITH LOGIN PASSWORD '{{ db_password }}';
+          END IF;
+        END
+        $$;"
+
+
+    - name: Create database
+      become: yes
+      become_user: postgres
+      shell: |
+        psql -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'mydatabase') THEN EXECUTE 'CREATE DATABASE mydatabase OWNER shravan'; END IF; END $$;"
+
+    # - name: Create database
+    #   become: yes
+    #   become_user: postgres
+    #   shell: |
+    #     psql -c "SELECT 'CREATE DATABASE {{db_name}} OWNER {{db_user}}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{db_name}}') \\\\gexec"
+      
+
+    # - name: create backup directory
+    #   file: 
+    #     path: "{{backup_dir}}"
+    #     state: directory
+    #     mode: 0755
+    #     owner: "{{db_user}}"
+
+    # - name: create backup script
+    #   template:
+    #     src: backup_db.sh.j2
+    #     dest: /usr/local/bin/db_backup.sh
+    #     mode: 0755
+    #     owner: "{{db_user}}"
+
+    # - name: create cron job for backup
+    #   cron:
+    #     name: "backup_db"
+    #     minute: "0"
+    #     hour: "2"
+    #     user: postgres
+    #     job: "/usr/local/bin/db_backup.sh"
+
+
+  handlers:
+     - name: restart postgresql
+       service:
+          name: postgresql
+          state: restarted
+
+     - name: reload postgresql
+       service:
+         name: postgresql
+         state: reloaded  
+
+                  
+          
+
