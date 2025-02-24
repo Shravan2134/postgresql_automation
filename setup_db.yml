@@ -63,23 +63,6 @@
         END
         $$;"
 
-    - name: Create database user
-      become: yes
-      become_user: postgres
-      vars:
-        db_user1: venky
-        db_password1: venky@1234
-      command: >
-        psql -c "DO $$
-        BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ db_user1 }}') THEN
-            CREATE ROLE {{ db_user1 }} WITH LOGIN PASSWORD '{{ db_password1 }}';
-          ELSE
-            ALTER ROLE {{ db_user1 }} WITH LOGIN PASSWORD '{{ db_password1 }}';
-          END IF;
-        END
-        $$;"    
-
     - name: Drop database if it exists
       become: yes
       become_user: postgres
@@ -95,12 +78,6 @@
         psql -c "CREATE DATABASE {{ db_name }} OWNER {{ db_user }};"
       register: db_created
 
-    - name: Create database if it doesn't exist
-      become: yes
-      become_user: postgres
-      shell: |
-        psql -c "CREATE DATABASE {{ db_name1 }} OWNER {{ db_user1 }};"
-      register: db_created  
 
 
     # - name: Create database

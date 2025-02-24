@@ -1,0 +1,4 @@
+repliation_user: venkatesh
+repliation_password: venkatesh@1234
+postgresql_version:  16
+db_name: mydatabase
